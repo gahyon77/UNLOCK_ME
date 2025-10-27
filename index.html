@@ -91,6 +91,12 @@
     <div class="coin-slot" id="slot"></div>
     <div class="capsule-slot" id="outlet"></div>
   </div>
+  @media (max-width: 768px) {
+  body { flex-direction: column; align-items: center; }
+  .machine { transform: scale(0.82); }
+  .collection { left: 10px; top: 100px; width: 200px; gap: 6px; }
+  .coin-ui { top: 10px; transform: translateX(-50%) scale(0.9); }
+}
 
 <script>
   /* ========= 데이터 ========= */
