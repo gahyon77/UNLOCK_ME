@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Pixel Gacha Machine — Text Collection</title>
+<style>
+  body{background:#0b0b0b;display:flex;align-items:center;justify-content:center;height:100vh;overflow:hidden;font-family:monospace;color:#ccc;}
+
+  /* ===== 상단 코인 UI ===== */
+  .coin-ui{position:fixed;top:30px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:10px;background:#fff;padding:6px 16px;border-radius:24px;box-shadow:0 2px 10px rgba(0,0,0,.25);font-family:system-ui,-apple-system,Segoe UI,Roboto,Inter,sans-serif;font-weight:700;z-index:200}
+  .coin-icon{width:22px;height:22px;border-radius:50%;background:radial-gradient(circle at 30% 30%,#ffecb3,#fdd835);display:flex;align-items:center;justify-content:center;color:#a67c00;font-size:14px}
+  .coin-count{color:#333;font-size:15px;width:30px;text-align:right}
+  .plus-btn{width:22px;height:22px;border-radius:50%;background:#5cc7ff;color:#fff;display:flex;align-items:center;justify-content:center;font-size:16px;cursor:pointer;transition:.2s}
+  .plus-btn:hover{background:#33b0f8;transform:scale(1.1)}
+
+  /* 팝업 */
+  .popup{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(255,255,255,.95);color:#111;font-size:14px;padding:20px 30px;border-radius:10px;box-shadow:0 6px 20px rgba(0,0,0,.4);opacity:0;animation:fadeIn .4s ease-out forwards;cursor:pointer;z-index:300;white-space:pre-line;text-align:center}
+  @keyframes fadeIn{from{opacity:0;transform:translate(-50%,-60%)}to{opacity:1;transform:translate(-50%,-50%)}}
+
+  /* ===== 왼쪽 수집 영역 ===== */
+  .collection{position:fixed;left:40px;top:120px;width:260px;max-height:80vh;overflow-y:auto;display:flex;flex-direction:column;gap:8px}
+  .collected-item{background:#fff;color:#111;padding:10px 14px;border-radius:8px;box-shadow:0 2px 6px rgba(0,0,0,.2);font-size:13px;line-height:1.3;animation:fadeIn .3s ease;white-space:pre-line}
+
+  /* ===== 기계 ===== */
+  .machine{position:relative;width:280px;height:480px;background:#DD212B;border-radius:6px;box-shadow:0 0 40px rgba(255,0,0,.3);overflow:hidden}
+  .glass{position:absolute;top:20px;left:12px;right:12px;height:240px;background:#111;border-radius:4px;overflow:hidden}
+
+  /* 유리창 캡슐(물리) */
+  .capsule{position:absolute;width:42px;height:42px;border-radius:50%;transform:rotate(var(--rot,0deg));box-shadow:0 2px 2px rgba(0,0,0,.35)}
+  .capsule::before{content:"";position:absolute;top:0;left:0;width:100%;height:50%;background:rgba(255,255,255,.25);border-top-left-radius:50%;border-top-right-radius:50%}
+  .capsule::after{content:"";position:absolute;bottom:0;left:0;width:100%;height:50%;background:var(--color);border-bottom-left-radius:50%;border-bottom-right-radius:50%}
+
+  .panel{position:absolute;top:280px;left:12px;display:flex;align-items:center;gap:18px}
+  .insert{width:120px;height:30px;background:#1E1E1E;display:flex;align-items:center;justify-content:center;border-radius:3px}
+  .insert span{color:#8AFF8A;font-size:12px;animation:blink 1s infinite}
+  @keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
+  .lever{width:60px;height:60px;cursor:pointer}
+  #handle{transform-origin:50% 50%;transition:transform .4s ease-in-out}
+
+  .coin-slot{position:absolute;top:290px;right:12px;width:40px;height:10px;cursor:pointer;background:linear-gradient(180deg,#D6D6D6 0%,#A8A8A8 100%);border-radius:6px;box-shadow:inset 0 1px 2px rgba(0,0,0,.4)}
+  .coin{position:absolute;left:50%;transform:translateX(-50%);width:20px;height:20px;border-radius:50%;background:radial-gradient(circle at 30% 30%,#fff9c4,#fdd835);animation:dropCoin .9s ease-in forwards}
+  @keyframes dropCoin{0%{top:-50px;opacity:1;transform:translateX(-50%) scale(1)}70%{top:10px}100%{top:15px;opacity:0;transform:translateX(-50%) scale(.5)}}
+
+  .capsule-slot{position:absolute;bottom:40px;left:50%;transform:translateX(-50%);width:90px;height:70px;border-radius:6px;background:rgba(20,20,20,.25);border:2px solid rgba(255,255,255,.1);box-shadow:inset 0 1px 2px rgba(255,255,255,.3),0 2px 6px rgba(0,0,0,.3);backdrop-filter:blur(2px);overflow:hidden}
+
+  .prize{position:absolute;left:50%;top:0;transform:translateX(-50%) scale(.9);width:42px;height:42px;border-radius:50%;filter:drop-shadow(0 2px 2px rgba(0,0,0,.35));cursor:pointer}
+  .prize::before,.prize::after{content:"";position:absolute;width:100%;height:50%;left:0;transition:all .7s cubic-bezier(.25,1,.3,1)}
+  .prize::before{top:0;background:rgba(255,255,255,.25);border-top-left-radius:50%;border-top-right-radius:50%}
+  .prize::after{bottom:0;background:var(--color);border-bottom-left-radius:50%;border-bottom-right-radius:50%}
+  .open::before{transform:translateY(-20px) rotateX(60deg) scale(1.3);opacity:.9}
+  .open::after{transform:translateY(20px) rotateX(-60deg) scale(1.3);opacity:.9}
+
+  /* 중앙 이동 확대 */
+  .prize-free{position:fixed!important;left:50%!important;top:50%!important;transform:translate(-50%,-50%) scale(1);z-index:100;transition:transform 1.8s cubic-bezier(.25,1,.3,1)}
+  .scale-3{transform:translate(-50%,-50%) scale(3)}
+
+  /* 난이도 배지 */
+  .difficulty{position:absolute;top:-16px;right:-16px;width:32px;height:32px;background:#ff4444;color:#000;font-weight:800;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,.4);font-size:14px;user-select:none;pointer-events:none}
+
+  .message{position:fixed;left:50%;top:50%;transform:translate(-50%,-10px);padding:14px 22px;background:rgba(255,255,255,.95);color:#222;border-radius:10px;box-shadow:0 4px 15px rgba(0,0,0,.3);opacity:0;font-size:14px;cursor:pointer;animation:floatUp .8s ease-out forwards;white-space:pre-line;text-align:center}
+  @keyframes floatUp{0%{opacity:0;transform:translate(-50%,10px)}100%{opacity:1;transform:translate(-50%,-20px)}}
+  .fadeout{animation:fadeOut 1s ease forwards}
+  @keyframes fadeOut{0%{opacity:1}100%{opacity:0}}
+</style>
+</head>
+<body>
+  <!-- 코인 UI -->
+  <div class="coin-ui">
+    <div class="coin-icon">$</div>
+    <div class="coin-count" id="coinCount">7</div>
+    <div class="plus-btn" id="plusBtn">+</div>
+  </div>
+
+  <!-- 왼쪽 수집 리스트 -->
+  <div class="collection" id="collection"></div>
+
+  <!-- 뽑기 기계 -->
+  <div class="machine">
+    <div class="glass" id="glass"></div>
+
+    <div class="panel">
+      <div class="insert"><span id="insertText">INSERT COIN</span></div>
+      <svg class="lever" id="lever" viewBox="0 0 100 100">
+        <circle cx="50" cy="50" r="48" fill="#D9D9D9" stroke="#B8B8B8" stroke-width="2"/>
+        <circle cx="50" cy="50" r="32" fill="#C8C8C8" stroke="#B0B0B0" stroke-width="1.5"/>
+        <g id="handle"><rect x="25" y="43" width="50" height="14" rx="6" fill="#E6E6E6" stroke="#BEBEBE" stroke-width="1"/></g>
+      </svg>
+    </div>
+
+    <div class="coin-slot" id="slot"></div>
+    <div class="capsule-slot" id="outlet"></div>
+  </div>
+
+<script>
+  /* ========= 데이터 ========= */
+  const colors=['#ff5a5a','#ff9f43','#ffd166','#7bd88f','#6bd0ff','#9d7bff','#ff86c8'];
+  const texts={
+    5:[
+      "Gahyun knitted me an AirPods case🥹❤️, and it’s so pretty, hehe.",
+      "✨I came to watch my little sibling’s piano recital!✨",
+      "My stuffed animals lost their home because I washed all my bedding…🥲🧸",
+      "I thought I started work at 10, but I came 40 minutes early. So unfair!!👿",
+      "I finally watched &lt;Hereditary&gt;, 😱the horror movie I’ve been wanting to see. Totally recommend it!"
+    ],
+    10:[
+      "I went to a famous jazz bar in Chiang Mai. I was terrified because the Google reviews said there were a lot of cockroaches, but when I actually went, I didn’t see a single one.",
+      "Recently, I saw online that it’s become a trend to show your underwear—specifically Chrome Hearts underwear. People wear their pants super low just to show off the logo design on the waistband. Out of curiosity, I looked it up… one pair costs around 150,000 won (about $110). At that price, I can’t help but wonder—does it even function as real underwear?",
+      "CU released a Pikmin collaboration, so of course I had to get it. It was actually really hard to find, and I struck out a few times before I finally got it. But it’s so cute. Totally worth the effort.",
+      "Magnolias and cherry blossoms have started blooming lately, and honestly, I’m not happy about it. Would it kill them to wait a little? Why do they always bloom when I’m busy? I love cherry blossoms so much, but I’ve never been able to enjoy them properly. It’s tragic.",
+      "Last week, I went to Ashley’s strawberry buffet. The poster for it was overflowing with love for strawberries. “Berry Sweet!”"
+    ],
+    20:[
+      "Maybe because I have low self-esteem, I tend to misread other people’s attitudes.",
+      "It really stresses me out that even the things I love have to become part of my résumé, a source of income, or proof of my ability.",
+      "[Diary Backup — Feb 18, 2024, 7:36 PM] I’m someone who’s good at only one flavor, so it’s hard for me to understand what it means to have many. Maybe I’m just too foolish for that.",
+      "I saw flowers called snapdragon and stock — they were really beautiful.",
+      "I’ve been thinking a lot about Substance. I kept putting off writing about it because my thoughts felt too vague, but I think they’ve started to take shape now. Recently, I went to the National Museum of Modern and Contemporary Art’s Seoul exhibition, and it really helped me organize my thoughts."
+    ]
+  };
+
+  /* ========= 상단 UI ========= */
+  const coinCountEl=document.getElementById('coinCount');
+  const plusBtn=document.getElementById('plusBtn');
+  plusBtn.addEventListener('click',()=>{
+    const p=document.createElement('div');
+    p.className='popup';
+    p.textContent="You Need More Time…\nPlease Come Back Tomorrow.";
+    document.body.appendChild(p);
+    p.addEventListener('click',()=>p.remove());
+  });
+
+  /* ========= 유리창 물리 ========= */
+  const glass=document.getElementById('glass');
+  const chamberW=260,chamberH=240,capSize=42,capCount=15;
+  const sims=[];
+  for(let i=0;i<capCount;i++){
+    const el=document.createElement('div');
+    el.className='capsule';
+    el.style.setProperty('--color',colors[Math.floor(Math.random()*colors.length)]);
+    el.style.setProperty('--rot',`${Math.random()*50-25}deg`);
+    const x=Math.random()*(chamberW-capSize), y=Math.random()*20;
+    el.style.left=`${x}px`; el.style.top=`${y}px`;
+    glass.appendChild(el);
+    sims.push({el,x,y,vy:0});
+  }
+  const g=.4,bounce=.3,floor=chamberH-capSize;
+  (function physics(){
+    for(let i=0;i<sims.length;i++){
+      const c=sims[i]; c.vy+=g; c.y+=c.vy;
+      for(let j=0;j<sims.length;j++){ if(i===j) continue;
+        const o=sims[j], dx=c.x-o.x, dy=c.y-o.y, d=Math.hypot(dx,dy);
+        if(d<capSize){ const ov=capSize-d, nx=dx/d, ny=dy/d;
+          c.x+=nx*(ov/2); c.y+=ny*(ov/2); o.x-=nx*(ov/2); o.y-=ny*(ov/2); c.vy*=-bounce; }
+      }
+      if(c.y>floor){ c.y=floor; c.vy*=-bounce; }
+      if(c.x<0) c.x=0; if(c.x>chamberW-capSize) c.x=chamberW-capSize;
+      c.el.style.left=`${c.x}px`; c.el.style.top=`${c.y}px`;
+    }
+    requestAnimationFrame(physics);
+  })();
+
+  /* ========= 코인/레버 ========= */
+  const slot=document.getElementById('slot');
+  const lever=document.getElementById('lever');
+  const handle=document.getElementById('handle');
+  const insertText=document.getElementById('insertText');
+  const outlet=document.getElementById('outlet');
+  const collection=document.getElementById('collection');
+  let coins=7, canPull=false;
+
+  slot.addEventListener('click',()=>{
+    if(coins<=0) return;
+    coins--; coinCountEl.textContent=coins;
+    const coin=document.createElement('div'); coin.className='coin'; slot.appendChild(coin);
+    setTimeout(()=>coin.remove(),800);
+    canPull=true;
+  });
+
+  lever.addEventListener('click',()=>{
+    if(!canPull){
+      insertText.textContent="INSERT COIN FIRST!";
+      insertText.style.color="#ff6b6b";
+      setTimeout(()=>{insertText.textContent="INSERT COIN";insertText.style.color="#8AFF8A";},1200);
+      return;
+    }
+    handle.style.transform="rotate(90deg)";
+    setTimeout(()=>handle.style.transform="rotate(0deg)",400);
+    canPull=false;
+    dropPrizeCapsule();
+  });
+
+  /* ========= 출구 → 중앙 → 난이도 클릭 → 열림/수집 ========= */
+  function dropPrizeCapsule(){
+    const prize=document.createElement('div');
+    prize.className='prize';
+    prize.style.setProperty('--color',colors[Math.floor(Math.random()*colors.length)]);
+    outlet.appendChild(prize);
+
+    // 출구 내부 낙하
+    let y=0, vy=0, G=.5, B=.3, outletFloor=28;
+    (function fall(){
+      vy+=G; y+=vy;
+      if(y>outletFloor){ y=outletFloor; vy*=-B; }
+      prize.style.top=`${y}px`;
+      if(Math.abs(vy)>0.2 || y<outletFloor) requestAnimationFrame(fall);
+      else releaseToCenter(prize);
+    })();
+  }
+
+  function releaseToCenter(prize){
+    prize.classList.add('prize-free');
+    document.body.appendChild(prize);
+    requestAnimationFrame(()=>prize.classList.add('scale-3'));
+
+    // 난이도 5/10/20 배정
+    const difficulty=[5,10,20][Math.floor(Math.random()*3)];
+    const badge=document.createElement('div');
+    badge.className='difficulty'; badge.textContent=String(difficulty);
+    prize.appendChild(badge);
+
+    let clicks=0;
+    function handleClick(){
+      clicks++;
+      const remain=difficulty-clicks;
+      if(remain>0){
+        badge.textContent=String(remain);
+      }else{
+        prize.removeEventListener('click', handleClick);
+        badge.remove();
+        openCapsule(prize, difficulty);
+      }
+    }
+    prize.addEventListener('click', handleClick);
+  }
+
+  function openCapsule(prize, difficulty){
+    // 딜레이 후 열림 + 텍스트
+    setTimeout(()=>{
+      prize.classList.add('open');
+
+      const msg=document.createElement('div');
+      msg.className='message';
+      const pool=texts[difficulty];
+      msg.innerHTML = pool[Math.floor(Math.random()*pool.length)];
+      document.body.appendChild(msg);
+
+      msg.addEventListener('click', ()=>{
+        // 클릭 시 수집 리스트에 추가
+        const item=document.createElement('div');
+        item.className='collected-item';
+        item.innerHTML = msg.innerHTML;
+        collection.prepend(item);
+
+        // 메시지 사라짐
+        msg.style.transition='opacity .4s ease';
+        msg.style.opacity='0';
+        setTimeout(()=>msg.remove(),400);
+      });
+
+      // 캡슐은 잠시 뒤 페이드아웃
+      setTimeout(()=>{
+        prize.classList.add('fadeout');
+        setTimeout(()=>prize.remove(),1000);
+      },2000);
+    },800);
+  }
+</script>
+</body>
+</html>
